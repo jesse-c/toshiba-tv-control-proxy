@@ -4,6 +4,10 @@ use serde_json::{json, Value};
 use std::io::Result;
 use std::net::SocketAddr;
 use std::time::Duration;
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
+use tower_request_id::RequestIdLayer;
+use tracing;
 use wakey;
 
 const MAC_ADDR: &str = "70:54:b4:cb:14:fe";
@@ -17,10 +21,16 @@ async fn main() {
         .route("/", get(root))
         .route("/status", get(status))
         .route("/on", get(on))
-        .route("/off", get(off));
+        .route("/off", get(off))
+        .layer(
+            ServiceBuilder::new()
+                .layer(RequestIdLayer)
+                .layer(TraceLayer::new_for_http()),
+        );
 
     // run it with hyper on localhost:3000
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    tracing::debug!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
